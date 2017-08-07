@@ -3,47 +3,27 @@
 #include <stdio.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
-#include <DS3231.h>
-//定义乐谱
-#define NOTE_D0 -1
-#define NOTE_D1 294
-#define NOTE_D2 330
-#define NOTE_D3 350
-#define NOTE_D4 393
-#define NOTE_D5 441
-#define NOTE_D6 495
-#define NOTE_D7 556
 
-#define NOTE_DL1 147
-#define NOTE_DL2 165
-#define NOTE_DL3 175
-#define NOTE_DL4 196
-#define NOTE_DL5 221
-#define NOTE_DL6 248
-#define NOTE_DL7 278
 
-#define NOTE_DH1 589
-#define NOTE_DH2 661
-#define NOTE_DH3 700
-#define NOTE_DH4 786
-#define NOTE_DH5 882
-#define NOTE_DH6 990
-#define NOTE_DH7 112
+/*
+ * 定义引脚
+ */
 
-//定义引脚
 LiquidCrystal_I2C lcd(0x27, 16, 2);
-DS3231 Clock;
-RFID rfid(53, 5);  //D10--读卡器SS引脚、D5--读卡器RST引脚
-int touch_id = 4;
-int fengming = A8;
+//D10--读卡器SS引脚、D5--读卡器RST引脚
+RFID rfid(53, 5); 
+int Touch_ID_Moniter = 4;
+int Buzzer = A8;
+
 //预置超管
-String adminId[] = {"28118121122105", "20218013195176", "0","1", "2", "3", "4", "5","6", "7", "8", "9", "10"};
+String AdminID[] = {"28118121122105", "20218013195176", "0","1", "2", "3", "4", "5","6", "7", "8", "9", "10"};
+
 //定义服务器结构体数据类型
 struct Data {
   String name;
   String englishname;
   String id;
-  String touch_id[5];
+  String Touch_ID_Moniter[5];
   String card_id;
   String allowed_time;
   String department;
@@ -53,39 +33,52 @@ struct Data {
 //定义卡号变量
 String id;
 String cardId;
-bool ifcard = false;
-bool dooropen;
-bool justnowdooropen;
 
-bool h12, PM, Century = false;
-byte year, month, date, DoW, hour, minute, second;
-bool ADy, A12h, Apm;
-byte A1Day, A1Hour, A1Minute, A1Second, A1Bits;
+//定义系统变量
+bool if_Card = false;
+bool Door_Opened;
+bool Just_Door_Opened;
+
 
 void setup()
 {
   lcd.init();
-  // Print a message to the LCD.
+  //初始化LCD屏幕
   lcd.backlight();
   lcd.setCursor(1, 0);
   lcd.print("IT CLUB SYSTEM");
   lcd.setCursor(4, 1);
   lcd.print("Starting");
+
+  //初始化串口设置
   Serial.begin(9600);
   Serial3.begin(115200);
   Serial2.begin(115200);
+
+  //初始化接口
   SPI.begin();
   rfid.init();
-  pinMode(fengming, OUTPUT);
-  bool dooropen = false;
-  bool justnowdooropen = false;
+  pinMode(Buzzer, OUTPUT);
+
+  //初始化系统变量
+  Door_Opened = false;
+  Just_Door_Opened = false;
+  if_Card = false;
 }
-void listenin() {
+
+void Listen() {
+
   //如果读到卡
   if (rfid.isCard()) {
-    show_wait();
-    ifcard = true;
+
+    //显示等待子程序
+    LCD_Show_Wait();
+
+    //声明状态变量改变
+    if_Card = true;
+
     Serial.println("Find the card!");
+
     //读取卡序列号
     if (rfid.readCardSerial()) {
       Serial.println("Read card's number is  : ");
@@ -94,37 +87,45 @@ void listenin() {
         id = id + (String)rfid.serNum[q];
         q++;
       } while (q < 5);
+
       Serial.println(id);
+
+      //声明全局变量
       cardId = id;
+
+      //LCD显示状态改变
       lcd.setCursor(1, 0);
       lcd.print("IT CLUB SYSTEM");
       lcd.setCursor(3, 1);
       lcd.print("Connecting");
-      singing(180, 3500);
+
+      //蜂鸣器发声
+      Buzzer_On(180, 3500);
     }
     //锁定读卡
     rfid.selectTag(rfid.serNum);
   }
   //休眠卡牌片
   rfid.halt();
+  
   /*
     //如果读到指纹
-    if (digitalRead(touch_id) == LOW) {
+    if (digitalRead(Touch_ID_Moniter) == LOW) {
       int got;
-      ifcard = true;
+      if_Card = true;
       Serial.println("Touch!");
-      show_wait();
+      LCD_Show_Wait();
 
-      if (get_touch_id() == "OK!") {
-        singing(150, 3500);
-        if (add_buff_touch_id(1) == "OK!") {
-          singing(150, 3500);
-          got = serach_touch_id(1);
+      if (get_Touch_ID_Moniter() == "OK!") {
+        Buzzer_On(150, 3500);
+        if (add_buff_Touch_ID_Moniter(1) == "OK!") {
+          Buzzer_On(150, 3500);
+          got = serach_Touch_ID_Moniter(1);
           Serial.println("IIIIIIIIIID:");
           Serial.println(got);
-          if (add_flash_touch_id(got, 2)) {
+          if (add_flash_Touch_ID_Moniter(got, 2)) {
             delay(100);
-            if (match_touch_id()) {
+            if (match_Touch_ID_Moniter()) {
               Serial.println("Pass!!");
               lcd.setCursor(1, 0);
               lcd.print("IT CLUB SYSTEM");
@@ -138,10 +139,10 @@ void listenin() {
           lcd.print("IT CLUB SYSTEM");
           lcd.setCursor(3, 1);
           lcd.print("Buffer Err");
-          singing(1000, 3500);
+          Buzzer_On(1000, 3500);
         }
       } else {
-        singing(1000, 3500);
+        Buzzer_On(1000, 3500);
         lcd.setCursor(1, 0);
         lcd.print("IT CLUB SYSTEM");
         lcd.setCursor(4, 1);
@@ -155,13 +156,13 @@ void loop()
 {
   id = "";
   cardId = "";
-  ifcard = false;
+  if_Card = false;
   //lcd.clear();
   lcd.setCursor(1, 0);
   lcd.print("IT CLUB SYSTEM");
   lcd.setCursor(1, 1);
   lcd.print("Touch or Swing");
-  /* while (ifcard == false) {
+  /* while (if_Card == false) {
      listenin();
     }*/
   if (id != "") {
@@ -170,14 +171,14 @@ void loop()
     back = getServerData("1000100010003");
     Serial.println(back.name);
     if (back.name != "Err") {
-      Serial.println(back.touch_id[1]);
+      Serial.println(back.Touch_ID_Moniter[1]);
       //开启第二轮监听
       int starttime = millis();
-      ifcard = false;
+      if_Card = false;
       while ((millis() - starttime) < 10000) {
         listenin();
       }
-      if (  ifcard == true) {
+      if (  if_Card == true) {
         //取得第二轮的卡号或指纹ID后
       } else {
         //未刷卡或刷卡超时，验证不通过
@@ -186,27 +187,27 @@ void loop()
       //验证超管
       int p = 0;
       while (p < 15) {
-        if (adminId[p] == id) {
+        if (AdminID[p] == id) {
           //是超管，执行超管动作
           Serial.println("admin!");
           delay(300);
-          singing(100, 3500);
+          Buzzer_On(100, 3500);
           delay(80);
-          singing(100, 3500);
+          Buzzer_On(100, 3500);
           lcd.clear();
           lcd.setCursor(4, 0);
           lcd.print("Welcome!");
           lcd.setCursor(5, 1);
           lcd.print("Admin");
           delay(1000);
-          justnowdooropen = true;
+          Just_Door_Opened = true;
           break;
         }
         p++;
       }
     }
     //判断刷卡后是否开门了
-    if (justnowdooropen == false) {
+    if (Just_Door_Opened == false) {
       lcd.clear();
       lcd.setCursor(5, 0);
       lcd.print("Sorry!");
@@ -217,7 +218,7 @@ void loop()
   }
 }
 
-void show_wait() {
+void LCD_Show_Wait() {
   lcd.clear();
   lcd.setCursor(1, 0);
   lcd.print("IT CLUB SYSTEM");
@@ -281,7 +282,7 @@ struct Data getServerData(String sign) {
       data.id = info[1];
       i = 1;
       while (i <= 5) {
-        data.touch_id[i] = touchidget[i];
+        data.Touch_ID_Moniter[i] = touchidget[i];
         i++;
       }
       data.card_id = info[5];
@@ -301,7 +302,7 @@ struct Data getServerData(String sign) {
   return data;
 }
 //读指纹到Pic区
-String get_touch_id() {
+String get_Touch_ID_Moniter() {
   Serial.flush();
   delay(150);
   unsigned char hexdata[12] = {0xEF, 0x01, 0xFF, 0xFF, 0xFF, 0xFF, 0x01, 0x00, 0x03, 0x01, 0x00, 0x05};
@@ -336,7 +337,7 @@ String get_touch_id() {
   }
 }
 //添加指纹到buff
-String add_buff_touch_id(int bufferid) {
+String add_buff_Touch_ID_Moniter(int bufferid) {
   Serial.flush();
   delay(150);
   if (bufferid == 1) {
@@ -376,7 +377,7 @@ String add_buff_touch_id(int bufferid) {
   }
 }
 //比对指纹
-boolean match_touch_id() {
+boolean match_Touch_ID_Moniter() {
   Serial.flush();
   unsigned char hexdata[12] = {0xEF , 0x01 , 0xFF , 0xFF , 0xFF , 0xFF , 0x01 , 0x00 , 0x03 , 0x03 , 0x00 , 0x07};
   Serial2.write(hexdata, 12);
@@ -404,7 +405,7 @@ boolean match_touch_id() {
   }
 }
 //搜索指纹
-char serach_touch_id(int bufferid) {
+char serach_Touch_ID_Moniter(int bufferid) {
   Serial.flush();
   delay(150);
   if (bufferid == 1) {
@@ -437,7 +438,7 @@ char serach_touch_id(int bufferid) {
     return "No Sercah";
   }
 }
-boolean add_flash_touch_id(int id, int bufferid) {
+boolean add_flash_Touch_ID_Moniter(int id, int bufferid) {
   Serial.flush();
   delay(150);
   if (bufferid == 1) {
@@ -472,8 +473,8 @@ boolean add_flash_touch_id(int id, int bufferid) {
     return false;
   }
 }
-void singing(int times, int diao) {
-  tone(fengming, diao);
+void Buzzer_On(int times, int diao) {
+  tone(Buzzer, diao);
   delay(times);
-  noTone(fengming);
+  noTone(Buzzer);
 }
