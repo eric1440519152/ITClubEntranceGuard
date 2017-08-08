@@ -22,6 +22,7 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 RFID rfid(53, 5); //SS引脚、RST引脚
 int Touch_ID_Moniter = 4;
 int Buzzer = A8;
+int Door = 8;
 
 /*
    @ 变量初始化
@@ -41,7 +42,10 @@ bool Door_Opened;
 /*
    @ 预置账号
 */
+
+//奇偶无特殊要求，包含卡号和指纹ID
 const String Admin_ID[] = {"28118121122105", "20218013195176", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"};
+//卡号在奇数，指纹在偶数，只能有一个指纹且必须配对
 const String User_ID[] = {"", ""};
 
 /*
@@ -108,8 +112,8 @@ void loop() {
       //定义局部变量
       int p = 0;
       bool If_Admin =	false;
-	  bool If_User = false;
-	  
+      bool If_User = false;
+
       //下一步验证，判断是管理员还是普通用户
       while (p < 15) {
         if (Admin_ID[p] == Touch_ID or Admin_ID[p] == Card_ID) {
@@ -128,39 +132,66 @@ void loop() {
           Buzzer_Show_Success();
 
           //开门
-
+          Open_Door();
 
           break;
         }
         p++;
       }
-	  
+
       if (!If_Admin) {
         //超管判断未通过
-		
+
         p = 0;
         while (p < 30) {
           if (User_ID[p] == Touch_ID or User_ID[p] == Card_ID) {
             //是普通用户，二次验证
-			
-			if(Listen_State == "Card_Success"){
-				
-				//显示请求按指纹
-				
-				//提交二次验证请求
-				If_User = Check_Again(Card_ID,"Card_Success",p);
-			}else if(Listen_State == "Touch_Success"){
-			
-				//显示请求按刷卡
-				
-				//提交二次验证请求
-				If_User = Check_Again(Touch_ID,"Touch_Success",p);
-			}
+
+            if (Listen_State == "Card_Success") {
+
+              //显示请求按指纹
+              LCD_Show_Tip("Touch", "");
+
+              //提交二次验证请求
+              If_User = Check_Again(Card_ID, "Card_Success", p);
+
+              if (If_User) {
+
+                //显示用户欢迎
+                LCD_Show_User();
+
+                //蜂鸣器提示通过
+                Buzzer_Show_Success();
+
+                //开门
+                Open_Door();
+              }
+            } else if (Listen_State == "Touch_Success") {
+
+              //显示请求按刷卡
+              LCD_Show_Tip("Swing Card", "");
+
+              //提交二次验证请求
+              If_User = Check_Again(Touch_ID, "Touch_Success", p);
+
+              if (If_User) {
+
+                //显示用户欢迎
+                LCD_Show_User();
+
+                //蜂鸣器提示通过
+                Buzzer_Show_Success();
+
+                //开门
+                Open_Door();
+              }
+
+            }
             break;
           }
           p++;
         }
-		
+
       } else {
         //都不是
 
@@ -210,6 +241,15 @@ void LCD_Show_Err(String Title, String Err) {
   lcd.print("Err:" + Title);
   lcd.setCursor(1, 1);
   lcd.print(Err);
+}
+
+//显示提示
+void LCD_Show_Tip(String Title, String tip) {
+  lcd.clear();
+  lcd.setCursor(1, 0);
+  lcd.print("Tip:" + Title);
+  lcd.setCursor(1, 1);
+  lcd.print(tip);
 }
 
 //显示主界面
@@ -717,7 +757,7 @@ String Listen() {
 
       return "Touch_Fail";
     }
-	
+
   } else {
     //没有动作
 
@@ -727,9 +767,94 @@ String Listen() {
 }
 
 /*
- * @ 二次验证
- * in ID and Type
- */
-bool Check_Again(String ID,String Type,int suffix){
-	
+   @ 二次验证
+   in ID and Type
+*/
+bool Check_Again(String ID, String Type, int suffix) {
+  //定义局部变量
+  int Last_Time = millis();
+  String Listen_State;
+
+  while ((millis() - Last_Time) < 5000) {
+    //5秒内有效
+    Listen_State = Listen();
+
+    if (Listen_State != "No_Action") {
+
+      //有动作
+      if (Listen_State == "Card_Success" and Type == "Touch_Success") {
+        //原来是指纹后刷卡
+        if (User_ID[suffix - 1] == Card_ID) {
+          //验证通过
+          return true;
+        } else {
+          //验证失败
+
+          //显示错误
+          LCD_Show_Err("It not match", "Card Touch Wrong");
+
+          //蜂鸣器提示失败
+          Buzzer_Show_Fail();
+
+          delay(2000);
+
+          return false;
+        }
+      } if (Listen_State == "Touch_Success" and Type == "Card_Success") {
+        //原来是刷卡后指纹
+        if (User_ID[suffix + 1] == Touch_ID) {
+          //验证通过
+          return true;
+        } else {
+          //验证失败
+
+          //显示错误
+          LCD_Show_Err("It not match", "Card Touch Wrong");
+
+          //蜂鸣器提示失败
+          Buzzer_Show_Fail();
+
+          delay(2000);
+
+          return false;
+        }
+      } else {
+
+        //两次指纹或刷卡
+
+        //显示错误
+        LCD_Show_Err("Repeat", "Repeat ID");
+
+        //蜂鸣器提示失败
+        Buzzer_Show_Fail();
+
+        delay(2000);
+
+        return false;
+      }
+    }
+  }
+
+  //显示错误
+  LCD_Show_Err("Time Out", "Time out!");
+
+  //蜂鸣器提示失败
+  Buzzer_Show_Fail();
+
+  delay(2000);
+
+  return false;
+
+}
+
+/*
+  @ 开门
+  开门10s
+*/
+void Open_Door() {
+  digitalWrite(Door, HIGH);
+  Door_Opened = true;
+  delay(10000);
+  digitalWrite(Door, LOW);
+  Door_Opened = false;
 }
