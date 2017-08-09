@@ -44,9 +44,9 @@ bool Door_Opened;
 */
 
 //奇偶无特殊要求，包含卡号和指纹ID
-const String Admin_ID[] = {"28118121122105", "20218013195176", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"};
+const String Admin_ID[] = {/*社长校牌*/"28118121122105", "20218013195176", "1", "2", "3", "4", "5", "6", "7", "8", "9"};
 //卡号在奇数，指纹在偶数，只能有一个指纹且必须配对
-const String User_ID[] = {"", ""};
+const String User_ID[] = {"18127158221237", "0",/*社长工牌*/"2112316622121", "5"};
 
 /*
    @ 子程序声明
@@ -115,9 +115,14 @@ void loop() {
       bool If_User = false;
 
       //下一步验证，判断是管理员还是普通用户
-      while (p < 15) {
-        if (Admin_ID[p] == Touch_ID or Admin_ID[p] == Card_ID) {
+      //循环次数等于数组成员数
+      while (p < (sizeof(Admin_ID) / sizeof(Admin_ID[0]))) {
+        if ((Admin_ID[p] == Touch_ID or Admin_ID[p] == Card_ID) and (Admin_ID[p] != "")) {
           //是超管，执行超管动作
+
+          // @!
+          Serial.println("R:" + Admin_ID[p]);
+          //Serial.println(p);
 
           // @!
           Serial.println("admin!");
@@ -143,14 +148,20 @@ void loop() {
         //超管判断未通过
 
         p = 0;
-        while (p < 30) {
-          if (User_ID[p] == Touch_ID or User_ID[p] == Card_ID) {
+        while (p < (sizeof(User_ID) / sizeof(User_ID[0]))) {
+          if ((User_ID[p] == Touch_ID or User_ID[p] == Card_ID) and (User_ID[p] != "")) {
             //是普通用户，二次验证
+
+            // @!
+            Serial.println("R:" + User_ID[p]);
+            //Serial.println(p);
 
             if (Listen_State == "Card_Success") {
 
               //显示请求按指纹
-              LCD_Show_Tip("Touch", "");
+              LCD_Show_Tip("Touch", "Need Your Touch");
+
+              delay(2000);
 
               //提交二次验证请求
               If_User = Check_Again(Card_ID, "Card_Success", p);
@@ -169,7 +180,9 @@ void loop() {
             } else if (Listen_State == "Touch_Success") {
 
               //显示请求按刷卡
-              LCD_Show_Tip("Swing Card", "");
+              LCD_Show_Tip("Swing Card", "Swing Your Card");
+
+              delay(2000);
 
               //提交二次验证请求
               If_User = Check_Again(Touch_ID, "Touch_Success", p);
@@ -192,7 +205,9 @@ void loop() {
           p++;
         }
 
-      } else {
+      }
+
+      if (!If_Admin and !If_User) {
         //都不是
 
         //无权限报错
@@ -237,9 +252,9 @@ void LCD_Show_Wait() {
 //显示错误
 void LCD_Show_Err(String Title, String Err) {
   lcd.clear();
-  lcd.setCursor(1, 0);
+  lcd.setCursor(0, 0);
   lcd.print("Err:" + Title);
-  lcd.setCursor(1, 1);
+  lcd.setCursor(0, 1);
   lcd.print(Err);
 }
 
@@ -275,7 +290,7 @@ void LCD_Show_User() {
   lcd.clear();
   lcd.setCursor(4, 0);
   lcd.print("Welcome!");
-  lcd.setCursor(5, 1);
+  lcd.setCursor(6, 1);
   lcd.print("User");
 }
 
@@ -322,10 +337,10 @@ String get_Touch_ID_Moniter() {
   //发出指令
   Serial2.write(hexdata, 12);
 
-  delay(500);
+  delay(1000);
 
   // @!
-  Serial.println("Get Touch:");
+  Serial.print("Get Touch:");
 
   //Serial.println(Serial2.available());
   while (Serial2.available() > 0) {
@@ -336,9 +351,9 @@ String get_Touch_ID_Moniter() {
     delay(2);
 
     // @!
-    Serial.println(i);
-    Serial.println("HEX:");
-    Serial.println(comdata[i], DEC);
+    /*Serial.println(i);
+      Serial.println("HEX:");
+      Serial.println(comdata[i], DEC);*/
 
     i++;
   }
@@ -396,21 +411,21 @@ String add_buff_Touch_ID_Moniter(int bufferid) {
     Serial2.write(hexdata, 13);
   }
 
-  delay(500);
+  delay(1000);
 
   // @！
-  Serial.println("Add Buffer:");
-  //Serial.println(Serial2.available());
+  Serial.print("Add Buffer:");
+  Serial.println(Serial2.available());
 
   while (Serial2.available() > 0) {
     //当收到返回时
     comdata[i] = Serial2.read();
-    delay(2);
+    delay(10);
 
     // @！
-    Serial.println(i);
-    Serial.println("HEX:");
-    Serial.println(comdata[i], DEC);
+    /*Serial.println(i);
+      Serial.println("HEX:");
+      Serial.println(comdata[i], HEX);*/
 
     i++;
   }
@@ -464,10 +479,10 @@ boolean match_Touch_ID_Moniter() {
   unsigned char hexdata[12] = {0xEF , 0x01 , 0xFF , 0xFF , 0xFF , 0xFF , 0x01 , 0x00 , 0x03 , 0x03 , 0x00 , 0x07};
   Serial2.write(hexdata, 12);
 
-  delay(500);
+  delay(1000);
 
   // @！
-  Serial.println("Match:");
+  Serial.print("Match:");
   //Serial.println(Serial2.available());
   while (Serial2.available() > 0) {
     //当收到反馈
@@ -475,9 +490,9 @@ boolean match_Touch_ID_Moniter() {
     delay(2);
 
     // @！
-    Serial.println(i);
-    Serial.println("HEX:");
-    Serial.println(comdata[i], DEC);
+    /*Serial.println(i);
+      Serial.println("HEX:");
+      Serial.println(comdata[i], DEC);*/
 
     i++;
   }
@@ -519,10 +534,10 @@ char serach_Touch_ID_Moniter(int bufferid) {
     Serial2.write(hexdata, 17);
   }
 
-  delay(500);
+  delay(1000);
 
   // @!
-  Serial.println("Serach:");
+  Serial.print("Serach:");
   //Serial.println(Serial2.available());
   while (Serial2.available() > 0) {
     //收到反馈
@@ -531,9 +546,9 @@ char serach_Touch_ID_Moniter(int bufferid) {
     delay(5);
 
     // @!
-    Serial.println(i);
-    Serial.println("HEX:");
-    Serial.println(comdata[i], DEC);
+    /*Serial.println(i);
+      Serial.println("HEX:");
+      Serial.println(comdata[i], DEC);*/
 
     i++;
   }
@@ -570,10 +585,10 @@ boolean add_flash_Touch_ID_Moniter(int id, int bufferid) {
     Serial2.write(hexdata, 17);
   }
 
-  delay(500);
+  delay(1000);
 
   // @!
-  Serial.println("Flash:");
+  Serial.print("Flash:");
   //Serial.println(Serial2.available());
   while (Serial2.available() > 0) {
     //当收到返回时
@@ -582,9 +597,9 @@ boolean add_flash_Touch_ID_Moniter(int id, int bufferid) {
     delay(5);
 
     // @!
-    Serial.println(i);
-    Serial.println("HEX:");
-    Serial.println(comdata[i], DEC);
+    /*Serial.println(i);
+      Serial.println("HEX:");
+      Serial.println(comdata[i], DEC);*/
 
     i++;
   }
@@ -619,12 +634,6 @@ String Listen() {
   if (rfid.isCard()) {
     //如果读到卡
 
-    //LCD提示等待
-    LCD_Show_Wait();
-
-    //蜂鸣器发声
-    Buzzer_Show_Getting();
-
     //声明状态变量改变
     If_Card = true;
 
@@ -635,7 +644,7 @@ String Listen() {
     if (rfid.readCardSerial()) {
 
       // @！
-      Serial.println("Read card's number is  : ");
+      Serial.print("Read card's number is  : ");
       int q = 0;
       do {
         Get_ID = Get_ID + (String)rfid.serNum[q];
@@ -645,8 +654,17 @@ String Listen() {
       // @！
       Serial.println(Get_ID);
 
+      //LCD提示等待
+      LCD_Show_Wait();
+
+      //蜂鸣器发声
+      Buzzer_Show_Getting();
+
       //全局变量修改
       Card_ID = Get_ID;
+
+      //蜂鸣器提示接受
+      Buzzer_Show_Getting();
 
       //返回刷卡成功
       return "Card_Success";
@@ -681,11 +699,11 @@ String Listen() {
         //搜索ID为1的Buffer的指纹是否存在并取出ID
         Touch_ID_Searched = serach_Touch_ID_Moniter(1);
 
-        if (Touch_ID_Searched != "Err") {
+        if (Touch_ID_Searched != char("Err")) {
           //如果搜索到ID
 
           // @!
-          Serial.println("Touch_ID_Searched:");
+          Serial.print("Touch_ID_Searched:");
           Serial.println(Touch_ID_Searched);
 
           //将取出ID的指纹放到ID为2的Buffer
@@ -693,6 +711,7 @@ String Listen() {
 
           if (Touch_ID_Searched != "Err") {
             //下一步验证
+            Buzzer_Show_Getting();
 
             delay(100);
 
@@ -705,8 +724,10 @@ String Listen() {
               //更新全局变量
               Touch_ID = Touch_ID_Searched;
 
-              //蜂鸣器提示通过
-              Buzzer_Show_Success();
+              //蜂鸣器提示接受
+              Buzzer_Show_Getting();
+
+              delay(1000);
 
               //返回指纹验证通过
               return "Touch_Success";
@@ -724,7 +745,7 @@ String Listen() {
           }
         } else {
           //没有搜索到ID
-          LCD_Show_Err("Serach_T", Touch_State);
+          LCD_Show_Err("Serach_T", "No Touch ID");
 
           //蜂鸣器提示失败
           Buzzer_Show_Fail();
@@ -751,7 +772,8 @@ String Listen() {
       LCD_Show_Err("Read_T", Touch_State);
 
       //蜂鸣器提示失败
-      Buzzer_Show_Fail();
+      //考虑可能会出现接触不良，噪声影响，暂时关闭蜂鸣器
+      //Buzzer_Show_Fail();
 
       delay(1000);
 
@@ -772,9 +794,8 @@ String Listen() {
 */
 bool Check_Again(String ID, String Type, int suffix) {
   //定义局部变量
-  int Last_Time = millis();
+  unsigned long Last_Time = millis();
   String Listen_State;
-
   while ((millis() - Last_Time) < 5000) {
     //5秒内有效
     Listen_State = Listen();
