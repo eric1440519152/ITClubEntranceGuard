@@ -20,7 +20,7 @@
 */
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 RFID rfid(53, 5); //SS引脚、RST引脚
-int Touch_ID_Moniter = 4;
+int Touch_ID_Moniter = 46;
 int Buzzer = A8;
 int Door = 8;
 
@@ -44,7 +44,7 @@ bool Door_Opened;
 */
 
 //奇偶无特殊要求，包含卡号和指纹ID
-const String Admin_ID[] = {/*社长校牌*/"28118121122105", "20218013195176", "1", "2", "3", "4", "5", "6", "7", "8", "9"};
+const String Admin_ID[] = {/*社长校牌*/"28118121122105", "20218013195176", "1"};
 //卡号在奇数，指纹在偶数，只能有一个指纹且必须配对
 const String User_ID[] = {"18127158221237", "0",/*社长工牌*/"2112316622121", "5"};
 
@@ -731,6 +731,16 @@ String Listen() {
 
               //返回指纹验证通过
               return "Touch_Success";
+            } else {
+              //比对不通过
+              LCD_Show_Err("Match_T_F", "Flash Match Err");
+
+              //蜂鸣器提示失败
+              Buzzer_Show_Fail();
+
+              delay(1000);
+
+              return "Flash_Match_Err";
             }
           } else {
             //将ID取出到Buffer失败
@@ -773,7 +783,7 @@ String Listen() {
 
       //蜂鸣器提示失败
       //考虑可能会出现接触不良，噪声影响，暂时关闭蜂鸣器
-      //Buzzer_Show_Fail();
+      Buzzer_Show_Fail();
 
       delay(1000);
 
