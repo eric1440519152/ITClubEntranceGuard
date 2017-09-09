@@ -22,7 +22,7 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 RFID rfid(53, 5); //SS引脚、RST引脚
 int Touch_ID_Moniter = 46;
 int Buzzer = A8;
-int Door = 8;
+int Doorpin = 2;
 
 /*
    @ 变量初始化
@@ -883,9 +883,9 @@ bool Check_Again(String ID, String Type, int suffix) {
   开门10s
 */
 void Open_Door() {
-  digitalWrite(Door, HIGH);
+  digitalWrite(Doorpin, HIGH);
   Door_Opened = true;
   delay(10000);
-  digitalWrite(Door, LOW);
+  digitalWrite(Doorpin, LOW);
   Door_Opened = false;
 }
