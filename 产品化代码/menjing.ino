@@ -74,6 +74,7 @@ void setup() {
 
   //初始化引脚
   pinMode(Buzzer, OUTPUT);
+  pinMode(Doorpin, OUTPUT);
 
   //初始化系统变量
   Door_Opened = false;
