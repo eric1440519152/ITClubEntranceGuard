@@ -19,7 +19,7 @@
    @ 定义引脚
 */
 LiquidCrystal_I2C lcd(0x27, 16, 2);
-RFID rfid(53, 5); //SS引脚、RST引脚
+RFID rfid(53, 48); //SS引脚、RST引脚
 int Touch_ID_Moniter = 46;
 int Buzzer = A8;
 int Doorpin = 2;
